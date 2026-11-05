@@ -1,4 +1,4 @@
-# DragonMath — Design Spec (v1)
+# SmartDragon — Design Spec (v1)
 
 **Date:** 2026-06-11
 **Status:** Approved (brainstorm), pending implementation plan
@@ -6,7 +6,7 @@
 
 ## Summary
 
-DragonMath is an offline Progressive Web App (PWA) that builds **1–10 multiplication
+SmartDragon is an offline Progressive Web App (PWA) that builds **1–10 multiplication
 fluency** for one specific child (~11–12, currently shaky/slow on times tables), with an
 ADHD diagnosis. The design is shaped by established ADHD-learning principles: one item on
 screen, reward the attempt, trivial starts, concrete visible progress, and a hard session

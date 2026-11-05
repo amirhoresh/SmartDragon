@@ -1,4 +1,4 @@
-# DragonMath — parent progress emails
+# SmartDragon — parent progress emails
 
 Get a **weekly review** of your child's practice, plus an **alert if she hasn't
 practiced for more than 3 days** — by email, without picking up her tablet.
@@ -20,7 +20,7 @@ account, no third party). The script does the emailing on a schedule.
    - **Execute as:** Me
    - **Who has access:** Anyone
    Click **Deploy** and **copy the Web app URL** (it ends in `/exec`).
-6. In DragonMath, tap the **⚙️** (top-right of the home screen) → **Parent area**.
+6. In SmartDragon, tap the **⚙️** (top-right of the home screen) → **Parent area**.
    Paste the URL into **Parent sync URL**, optionally type the child's name, and
    tap **Save**.
 7. Tap **Send test**. Within a minute you should get a "test email — setup works!"

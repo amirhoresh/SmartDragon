@@ -1,6 +1,6 @@
 {
-  "name": "DragonMath",
-  "short_name": "DragonMath",
+  "name": "SmartDragon",
+  "short_name": "SmartDragon",
   "description": "A colorful, ADHD-friendly game to practice math.",
   "start_url": "./index.html",
   "scope": "./",

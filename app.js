@@ -1,4 +1,4 @@
-/* DragonMath — game logic.
+/* SmartDragon — game logic.
    One specific kid, ~11-12, ADHD. Builds 1-10 multiplication fluency.
    ADHD rules baked in: one thing on screen, reward the attempt, trivial start,
    visible progress, hard stop. No network, all state in localStorage. */
@@ -6,7 +6,7 @@
 'use strict';
 
 // ---------- persistence ----------
-const SAVE_KEY = 'dragonmath.save.v1';
+const SAVE_KEY = 'smartdragon.save.v1';
 
 const defaultSave = () => ({
   stars: 0,            // lifetime stars -> dragon growth
@@ -144,7 +144,7 @@ function buildPayload() {
   for (const m in state.topics) allQ += state.topics[m].q || 0;
   for (const k in state.days) if ((state.days[k].a || 0) > 0) allDays++;
   return {
-    app: 'dragonmath', childName: state.childName || '',
+    app: 'smartdragon', childName: state.childName || '',
     lastActivityTs: state.lastActivityTs || 0, sentAt: Date.now(),
     stars: state.stars, stage: STAGES[stageIndex(state.stars)].label,
     days: state.days, week: weekStats(),
@@ -923,7 +923,7 @@ function renderSettings() {
           <b>To get the emails — one-time setup (~10 min):</b>
           <ol>
             <li><a href="https://script.google.com" target="_blank" rel="noopener">Open Google Apps Script</a> → <i>New project</i>.</li>
-            <li><a href="https://raw.githubusercontent.com/amirhoresh/dragonmath/master/parent-sync/Code.gs" target="_blank" rel="noopener">Copy the script code</a> → paste it in, set your email near the top.</li>
+            <li><a href="https://raw.githubusercontent.com/amirhoresh/smartdragon/master/parent-sync/Code.gs" target="_blank" rel="noopener">Copy the script code</a> → paste it in, set your email near the top.</li>
             <li><i>Run ▸ setup</i> (approve the prompts) → <i>Deploy ▸ New deployment ▸ Web app</i> (Execute as <b>Me</b>, access <b>Anyone</b>) → copy the <code>…/exec</code> URL.</li>
             <li>Paste that URL above → <b>Save</b> → <b>Send test</b>. A test email should arrive in a minute.</li>
           </ol>
