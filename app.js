@@ -1756,14 +1756,56 @@ function buildFracNew(subtype) {
     const options = shuffleInPlace([{...ans,correct:true},...wrong.slice(0,3).map(f=>({...f,correct:false}))]);
     return {subtype, whole, n, d, raw, ans, options, cacheKey:`${whole}x${n}/${d}`};
   }
+
+  if (subtype === 'fracQuotient') {
+    // שבר כמנת חילוק: n items shared equally among d people → n/d each
+    const d = ri(3, 10), n = ri(1, Math.min(d - 1, 5));
+    const ans = reduceFrac(n, d);
+    const ctxs = [
+      (n, d) => `${d} ילדים מחלקים ${n} פיצות שווה בשווה. כמה מקבל כל ילד? 🍕`,
+      (n, d) => `${d} ילדים מחלקים ${n} ליטר מיץ שווה בשווה. כמה מקבל כל ילד? 🧃`,
+      (n, d) => `${n} עוגות מחולקות בין ${d} ילדים בשווה. כמה מקבל כל ילד? 🎂`,
+      (n, d) => `${d} חברים חולקים ${n} שוקולד שווה בשווה. כמה מקבל כל אחד? 🍫`,
+    ];
+    const ctx = ctxs[Math.floor(rand() * ctxs.length)](n, d);
+    const wrong = [];
+    for (const c of [{n:d,d:n>1?n:2},{n:ans.n+1,d:ans.d},{n:ans.n,d:ans.d+1},{n:Math.max(1,ans.n-1),d:ans.d},{n:d-n,d:d>2?d:3}]) {
+      if (c.n>0&&c.d>1&&!fsame(c,ans)&&!wrong.some(x=>fsame(x,c))) wrong.push(c);
+      if (wrong.length>=3) break;
+    }
+    let e=1; while(wrong.length<3){const f={n:ans.n+e,d:ans.d};if(!fsame(f,ans))wrong.push(f);e++;}
+    const options = shuffleInPlace([{...ans,correct:true},...wrong.slice(0,3).map(f=>({...f,correct:false}))]);
+    return {subtype, n, d, ans, ctx, options, cacheKey:`fq:${n}/${d}`};
+  }
+
+  if (subtype === 'compareFrac') {
+    // השוואת שברים: which of two displayed fractions is larger?
+    let f1, f2, guard = 0;
+    do {
+      const d1 = ri(2, 8), n1 = ri(1, d1 - 1);
+      const d2 = ri(2, 8), n2 = ri(1, d2 - 1);
+      f1 = {n: n1, d: d1}; f2 = {n: n2, d: d2};
+      guard++;
+    } while ((feq(f1, f2) || Math.abs(f1.n / f1.d - f2.n / f2.d) < 0.1) && guard < 30);
+    const bigger = f1.n / f1.d >= f2.n / f2.d ? f1 : f2;
+    const smaller = feq(bigger, f1) ? f2 : f1;
+    const wrong = [];
+    for (const c of [smaller, {n:bigger.n+1,d:bigger.d}, {n:bigger.n,d:Math.max(2,bigger.d-1)}]) {
+      if (c.n>0&&c.d>1&&!fsame(c,bigger)&&!wrong.some(x=>fsame(x,c))) wrong.push(c);
+      if (wrong.length>=3) break;
+    }
+    let e=1; while(wrong.length<3){const f={n:bigger.n+e,d:bigger.d};if(!fsame(f,bigger))wrong.push(f);e++;}
+    const options = shuffleInPlace([{...bigger,correct:true},...wrong.slice(0,3).map(f=>({...f,correct:false}))]);
+    return {subtype, f1, f2, bigger, options, cacheKey:`cf:${f1.n}/${f1.d}:${f2.n}/${f2.d}`};
+  }
 }
 
 function makeFractionProblem(finalWin) {
   const easy = finalWin || round.index === 0;
   const OLD = ['addSame', 'subSame', 'mul', 'addUnlike', 'subUnlike'];
-  const NEW = ['fracOfNum', 'improper', 'equiv', 'wholeFrac'];
+  const NEW = ['fracOfNum', 'improper', 'equiv', 'wholeFrac', 'fracQuotient', 'compareFrac'];
   // New types appear twice in the pool to give them equal weight vs 5 old types
-  const pool = easy ? ['addSame', 'fracOfNum'] : [...OLD, ...NEW, ...NEW];
+  const pool = easy ? ['addSame', 'fracOfNum', 'fracQuotient'] : [...OLD, ...NEW, ...NEW];
   let p, key;
   for (let t = 0; t < 20; t++) {
     const subtype = pool[Math.floor(rand() * pool.length)];
@@ -1819,6 +1861,8 @@ function fracExplain(p) {
   }
   if (p.subtype === 'equiv') return `${p.n}/${p.d} = ${p.ans.n}/${p.ans.d}`;
   if (p.subtype === 'wholeFrac') return `${p.whole} × ${p.n}/${p.d} = ${p.ans.n}/${p.ans.d}`;
+  if (p.subtype === 'fracQuotient') return `${p.n} ÷ ${p.d} = ${p.ans.n}/${p.ans.d}`;
+  if (p.subtype === 'compareFrac') return `${p.bigger.n}/${p.bigger.d} גדול יותר (${(p.bigger.n/p.bigger.d).toFixed(2)} > ${(p.f1.n/p.f1.d===p.bigger.n/p.bigger.d?p.f2.n/p.f2.d:p.f1.n/p.f1.d).toFixed(2)})`;
   const r = p.raw, a = p.ans;
   if (fsame(r, a)) return `התשובה: ${a.n}/${a.d}`;
   return `${r.n}/${r.d} = ${a.n}/${a.d} (מצמצמים)`;
@@ -1830,10 +1874,12 @@ function mixedTile(w, n, d) {
 
 function renderFractions() {
   const p = problem;
-  if (p.subtype === 'fracOfNum') return renderFracOfNum(p);
-  if (p.subtype === 'improper')  return renderImproper(p);
-  if (p.subtype === 'equiv')     return renderEquivFrac(p);
-  if (p.subtype === 'wholeFrac') return renderWholeFrac(p);
+  if (p.subtype === 'fracOfNum')    return renderFracOfNum(p);
+  if (p.subtype === 'improper')     return renderImproper(p);
+  if (p.subtype === 'equiv')        return renderEquivFrac(p);
+  if (p.subtype === 'wholeFrac')    return renderWholeFrac(p);
+  if (p.subtype === 'fracQuotient') return renderFracQuotient(p);
+  if (p.subtype === 'compareFrac')  return renderCompareFrac(p);
   // existing op-based render
   app.innerHTML = '';
   const eq = `${fracTile(p.o1)}<span class="op">${p.op}</span>${fracTile(p.o2)}<span class="op">=</span><span class="qmark">?</span>`;
@@ -1956,6 +2002,55 @@ function renderWholeFrac(p) {
   });
 }
 
+function renderFracQuotient(p) {
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text" style="font-size:1.1em;text-align:center">${p.ctx}</p>
+        <div class="running">שבר כמנת חילוק</div>
+      </div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  p.options.forEach(o => {
+    const b = el(`<button class="btn answer frac-answer" data-correct="${o.correct}">${fracTile(o)}</button>`);
+    b.onclick = () => chooseFrac(o, b);
+    answers.appendChild(b);
+  });
+}
+
+function renderCompareFrac(p) {
+  app.innerHTML = '';
+  const view = el(`
+    <div class="round">
+      ${roundTopbar()}
+      <div class="prompt-card">
+        <p class="prompt-text" style="gap:16px;justify-content:center">
+          ${fracTile(p.f1)}<span style="font-size:1.3em;color:#888">או</span>${fracTile(p.f2)}
+        </p>
+        <div class="running">איזה שבר גדול יותר?</div>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center;margin:8px 0">
+        ${fracBarSVG(p.f1.n, p.f1.d, '#7b4dff')}${fracBarSVG(p.f2.n, p.f2.d, '#ff6b35')}
+      </div>
+      <div class="hint" id="hint"></div>
+      <div class="answers" id="answers"></div>
+    </div>
+  `);
+  app.appendChild(view);
+  const answers = view.querySelector('#answers');
+  p.options.forEach(o => {
+    const b = el(`<button class="btn answer frac-answer" data-correct="${o.correct}">${fracTile(o)}</button>`);
+    b.onclick = () => chooseFrac(o, b);
+    answers.appendChild(b);
+  });
+}
+
 function chooseFracNum(o, btn) {
   const p = problem;
   if (p.locked) return;
@@ -1984,7 +2079,7 @@ function chooseFracNum(o, btn) {
 
 function revealFrac() {
   const p = problem;
-  if (['fracOfNum','improper','equiv','wholeFrac'].includes(p.subtype)) return;
+  if (['fracOfNum','improper','equiv','wholeFrac','fracQuotient','compareFrac'].includes(p.subtype)) return;
   if (p.op === '×') return;
   const st = document.getElementById('fstage');
   if (st) st.innerHTML = fracBarSVG(p.raw.n, p.raw.d, COLORS[3]);
