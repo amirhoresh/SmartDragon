@@ -1,6 +1,6 @@
 /* SmartDragon service worker — network-first so updates always reach the device
    when online, with a cached app shell as offline fallback. */
-const CACHE = 'smartdragon-v44';
+const CACHE = 'smartdragon-v45';
 const ASSETS = [
   './',
   './index.html',
