@@ -469,8 +469,38 @@ function renderGeometryMenu() {
 // ---------- חזרה למבחן — exam review sessions ----------
 const REVIEW_SESSION_COUNT = 5;
 
-function buildReviewQueue() {
-  // 15 questions per session: 6 fractions, 3 numline, 2 oporder, 2 bignum, 2 factors
+const REVIEW_TESTS = {
+  prev: {
+    label: 'מבחן קודם',
+    icon: '📚',
+    topics: ['סדר פעולות · מספרים גדולים', 'גורמים · ציר מספרים · שברים'],
+  },
+  next: {
+    label: 'מבחן 17.11',
+    icon: '🗓',
+    topics: ['שבר כמנת חילוק', 'ציר מספרים עם שברים', 'השוואת שברים (סימון a:b) · שברים שקולים · שברים מעורבים'],
+  },
+};
+
+function getReviewSessions(key) {
+  if (!state.reviews) state.reviews = {};
+  if (state.review && !state.reviews.prev) state.reviews.prev = state.review.sessions;
+  if (!state.reviews[key]) state.reviews[key] = Array(REVIEW_SESSION_COUNT).fill(0).map(() => ({}));
+  while (state.reviews[key].length < REVIEW_SESSION_COUNT) state.reviews[key].push({});
+  return state.reviews[key];
+}
+
+function buildReviewQueue(key) {
+  if (key === 'next') return shuffleInPlace([
+    // 15 questions focused on Nov 17: fraction-as-quotient, colon comparison, numline
+    'fracQuotient','fracQuotient','fracQuotient',
+    'compareColon','compareColon','compareColon',
+    'numline','numline','numline',
+    'compareFrac','compareFrac',
+    'equiv','equiv',
+    'improper','improper',
+  ]);
+  // prev: 6 fractions, 3 numline, 2 oporder, 2 bignum, 2 factors
   return shuffleInPlace([
     'fractions','fractions','fractions','fractions','fractions','fractions',
     'numline','numline','numline',
@@ -485,7 +515,11 @@ function makeReviewProblem(finalWin) {
   const type = round.reviewQueue[idx] || 'fractions';
   round.reviewQueueIdx = idx + 1;
   let p;
-  if (type === 'fractions') p = makeFractionProblem(finalWin);
+  const specificFracTypes = ['fracQuotient','compareColon','compareFrac','equiv','improper','wholeFrac'];
+  if (specificFracTypes.includes(type)) {
+    p = buildFracNew(type);
+    p.kind = 'frac'; p.tries = 0; p.locked = false; p.finalWin = finalWin;
+  } else if (type === 'fractions') p = makeFractionProblem(finalWin);
   else if (type === 'numline') p = makeNumlineProblem(finalWin);
   else if (type === 'oporder') p = makeOpOrderProblem(finalWin);
   else if (type === 'bignum') p = makeBignumProblem(finalWin);
@@ -494,12 +528,13 @@ function makeReviewProblem(finalWin) {
   return p;
 }
 
-function startReview(sessionIdx) {
+function startReview(sessionIdx, key) {
   audio.ensure();
-  const queue = buildReviewQueue();
+  const queue = buildReviewQueue(key);
   round = {
     mode: 'review', reviewMode: true,
     reviewSessionIdx: sessionIdx,
+    reviewKey: key,
     reviewQueue: queue, reviewQueueIdx: 0,
     index: 0, correctCount: 0, starsEarned: 0,
     wrongStreak: 0, combo: 0, startTs: Date.now(),
@@ -509,16 +544,16 @@ function startReview(sessionIdx) {
 }
 
 function renderReviewMenu() {
-  if (!state.review) state.review = {sessions: Array(REVIEW_SESSION_COUNT).fill(0).map(()=>({}))};
-  while (state.review.sessions.length < REVIEW_SESSION_COUNT) state.review.sessions.push({});
   app.innerHTML = '';
-  const sessions = state.review.sessions;
-  const allDone = sessions.every(s=>s.done);
-  const cards = sessions.map((s,i) => {
-    const done = s.done;
-    const icon = done ? '✅' : '▶';
-    const stars = done && s.stars ? ` ★${s.stars}` : '';
-    return `<button class="btn btn--big review-session-btn${done?' review-done':''}" data-idx="${i}">${icon} פגישה ${i+1}${stars}</button>`;
+  const testButtons = Object.entries(REVIEW_TESTS).map(([key, t]) => {
+    const sessions = getReviewSessions(key);
+    const doneCount = sessions.filter(s => s.done).length;
+    const badge = doneCount > 0 ? ` · ${doneCount}/${REVIEW_SESSION_COUNT} פגישות` : '';
+    const topicsHtml = t.topics.map(line => `<span class="btn-sub-line">${line}</span>`).join('');
+    return `<button class="btn btn--big btn--has-sub review-test-btn" data-key="${key}">
+      ${t.icon} ${t.label}<span style="font-size:.75em;opacity:.65">${badge}</span>
+      <span class="btn-sub" style="display:flex;flex-direction:column;gap:2px;line-height:1.5">${topicsHtml}</span>
+    </button>`;
   }).join('');
   const view = el(`
     <div class="home mul-menu">
@@ -527,22 +562,52 @@ function renderReviewMenu() {
         <h1 class="title">📝 <b>חזרה למבחן</b></h1>
         <span style="width:52px"></span>
       </div>
-      <p class="review-subtitle">כל פגישה — 15 שאלות בערך 5 דקות<br>שאלות מסוג המבחן, מעורבות</p>
+      <p class="review-subtitle">בחרי לאיזה מבחן להתכונן</p>
+      <div class="mode-buttons mul-mode-buttons">${testButtons}</div>
+    </div>
+  `);
+  app.appendChild(view);
+  view.querySelector('#back').onclick = () => renderHome();
+  view.querySelectorAll('.review-test-btn').forEach(btn => {
+    btn.onclick = () => renderReviewSubmenu(btn.dataset.key);
+  });
+}
+
+function renderReviewSubmenu(key) {
+  const t = REVIEW_TESTS[key];
+  const sessions = getReviewSessions(key);
+  const allDone = sessions.every(s => s.done);
+  const cards = sessions.map((s, i) => {
+    const done = s.done;
+    const stars = done && s.stars ? ` ★${s.stars}` : '';
+    return `<button class="btn btn--big review-session-btn${done ? ' review-done' : ''}" data-idx="${i}">${done ? '✅' : '▶'} פגישה ${i+1}${stars}</button>`;
+  }).join('');
+  app.innerHTML = '';
+  const view = el(`
+    <div class="home mul-menu">
+      <div class="topbar">
+        <button class="mute" id="back" aria-label="חזרה">‹</button>
+        <h1 class="title">${t.icon} <b>${t.label}</b></h1>
+        <span style="width:52px"></span>
+      </div>
+      <p class="review-subtitle">כל פגישה — 15 שאלות בערך 5 דקות<br>${t.topics.join(' · ')}</p>
       ${allDone ? '<div class="craving-bubble craving-bubble--done">🏆 סיימת את כל הפגישות! כל הכבוד!</div>' : ''}
       <div class="mode-buttons mul-mode-buttons">${cards}</div>
     </div>
   `);
   app.appendChild(view);
-  view.querySelector('#back').onclick = () => renderHome();
+  view.querySelector('#back').onclick = () => renderReviewMenu();
   view.querySelectorAll('.review-session-btn').forEach(btn => {
-    btn.onclick = () => startReview(Number(btn.dataset.idx));
+    btn.onclick = () => startReview(Number(btn.dataset.idx), key);
   });
 }
 
 function renderReviewComplete(sessionIdx, starsEarned) {
+  const key = round.reviewKey || 'prev';
   app.innerHTML = '';
   const nextIdx = sessionIdx + 1;
   const hasNext = nextIdx < REVIEW_SESSION_COUNT;
+  const t = REVIEW_TESTS[key];
   const view = el(`
     <div class="end">
       <h2>פגישה ${sessionIdx+1} הושלמה! 🎉</h2>
@@ -550,15 +615,15 @@ function renderReviewComplete(sessionIdx, starsEarned) {
       <div class="stars-pill"><span class="star">★</span> ${state.stars} בסך הכול</div>
       ${hasNext
         ? `<button class="btn btn--big btn--teal" id="next-review">פגישה ${nextIdx+1} ←</button>`
-        : '<p style="font-size:1.3em;margin:12px 0">🏆 סיימת את כל הפגישות!</p>'
+        : `<p style="font-size:1.3em;margin:12px 0">🏆 סיימת את כל הפגישות ל${t.label}!</p>`
       }
       <button class="btn btn--big" id="review-menu">כל הפגישות</button>
       <button class="btn" id="go-home">בית 🏠</button>
     </div>
   `);
   app.appendChild(view);
-  if (hasNext) view.querySelector('#next-review').onclick = () => startReview(nextIdx);
-  view.querySelector('#review-menu').onclick = () => renderReviewMenu();
+  if (hasNext) view.querySelector('#next-review').onclick = () => startReview(nextIdx, key);
+  view.querySelector('#review-menu').onclick = () => renderReviewSubmenu(key);
   view.querySelector('#go-home').onclick = () => renderHome();
   confetti(40);
 }
@@ -3408,9 +3473,10 @@ function isTriangle(corners, target) {
 function endRound() {
   if (round.reviewMode) {
     const idx = round.reviewSessionIdx;
-    if (!state.review) state.review = {sessions:[{},{},{},{},{}]};
-    const prev = state.review.sessions[idx] || {};
-    state.review.sessions[idx] = {done: true, stars: Math.max(prev.stars||0, round.starsEarned)};
+    const key = round.reviewKey || 'prev';
+    const sessions = getReviewSessions(key);
+    const prev = sessions[idx] || {};
+    sessions[idx] = {done: true, stars: Math.max(prev.stars||0, round.starsEarned)};
     state.lastPlayed = Date.now();
     save(state);
     syncNow(true);
